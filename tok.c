@@ -29,7 +29,9 @@ char *get_cur_data(void)
   return cur_data;
 }
 
-static int pushback = EOF;
+#define NOT_PUSHED (EOF - 1)
+
+static int pushback = NOT_PUSHED;
 
 void push_back(char c)
 {
@@ -40,13 +42,13 @@ int next_char(void)
 {
   char c;
 
-  if(pushback != EOF)
+  if(pushback != NOT_PUSHED)
   {
     c = pushback;
-    pushback = EOF;
+    pushback = NOT_PUSHED;
   }
   else
-    c = io_getchar();
+    c = getchar();
 
   return c;
 }
@@ -149,11 +151,11 @@ void advance(void)
       cur = TOK_REDIR_OUT;
       return;
 
-    case '{':
+    case '(':
       cur = TOK_BLOCK_START;
       return;
 
-    case '}':
+    case ')':
       cur = TOK_BLOCK_END;
       return;
 
@@ -181,7 +183,10 @@ void advance(void)
       push_data(c);
 
       nc = next_char();
-      while(nc != ' ' && nc != '\t' && nc != '\b' && nc != '\v' && nc != '\r' && nc != '\n' && nc != EOF)
+	  /* Separate words on whitespace, end a word at EOF or any special character */
+      while(nc != ' ' && nc != '\t' && nc != '\b' && nc != '\v' && nc != '\r' && nc != '\n' &&
+			  nc != ';' && nc != '&' && nc != '(' && nc != ')' && nc != '<' && nc != '>' &&
+			  nc != '|' && nc != EOF)
       {
         push_data(nc);
         nc = next_char();

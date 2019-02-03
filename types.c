@@ -98,42 +98,42 @@ void print_cmd_inner(struct cmd *c, unsigned lev)
   unsigned i;
 
   for(i = 0; i < lev; i++)
-    io_printf("  ");
+    printf("  ");
 
   if(!c)
   {
-    io_printf("<NULL cmd>\n");
+    printf("<NULL cmd>\n");
     return;
   }
 
   switch(c->tp)
   {
   default:
-    io_printf("<BAD cmd %d>\n", c->tp);
+    printf("<BAD cmd %d>\n", c->tp);
     break;
 
   case EXEC:
-    io_printf("EXEC: ");
+    printf("EXEC: ");
     s = c->exec.argv;
     while(*s)
-      io_printf("\"%s\" ", *s++);
-    io_printf("\n");
+      printf("\"%s\" ", *s++);
+    printf("\n");
     break;
 
   case PIPE:
-    io_printf("PIPE:\n");
+    printf("PIPE:\n");
     print_cmd_inner(c->pipe.left, lev + 1);
     print_cmd_inner(c->pipe.right, lev + 1);
     break;
 
   case LIST:
-    io_printf("LIST:\n");
+    printf("LIST:\n");
     print_cmd_inner(c->list.first, lev + 1);
     print_cmd_inner(c->list.next, lev + 1);
     break;
 
   case REDIR:
-    io_printf("REDIR: FD %d MODE %d PATH %s\n",
+    printf("REDIR: FD %d MODE %d PATH %s\n",
               c->redir.fd,
               c->redir.mode,
               c->redir.path
@@ -142,7 +142,7 @@ void print_cmd_inner(struct cmd *c, unsigned lev)
     break;
 
   case BACK:
-    io_printf("BACK:\n");
+    printf("BACK:\n");
     print_cmd_inner(c->back.cmd, lev + 1);
     break;
   }

@@ -80,8 +80,3 @@ This lives in `exec.c`, and is the bit you'll be writing. See the lab handout
 and the lab presentation for some instructions here. You'll need to write the
 sequence of system calls which "do the right thing" for each of the command
 types.
-
-Note that, in order for this shell to work on both POSIX systems (eg, Linux
-and OS X) and xv6 (the operating system you'll be building on top of in later
-labs), there are some compatibility shims in `syscall.c`, `syscall.h`, and
-`io.h`.

@@ -1,72 +1,162 @@
 #include "shtypes.h"
 #include "syscalls.h"
 #include "io.h"
+#include <dirent.h>
+#include <unistd.h>
 
-int
-handle_builtin(struct cmd *c)
+int handle_builtin(struct cmd *c)
 {
-  if (!c)
-    return 0;
+	if (c == NULL) // c == null;
+		return 0;
 
-  switch (c->tp)
-  {
-  case EXEC:
-    if (strcmp(c->exec.argv[0], "echo") == 0) {
-      for (int i = 1; ; i++)
-        if (c->exec.argv[i])
-          io_printf("%s ", c->exec.argv[i]);
-        else
-          break;
-      printf("\n");
-      return 1;
-    } else {
-      /* TODO: implement cd, pwd, exit */
-      return 0;
-    }
-  default:
-    return 0;
-  }
+	switch (c->tp)
+	{
+	case EXEC:
+		if (strcmp(c->exec.argv[0], "echo") == 0)
+		{
+			for (int i = 1;; i++)
+				if (c->exec.argv[i])
+					printf("%s ", c->exec.argv[i]);
+				else
+					break;
+			printf("\n");
+			return 1;
+		}
+		else if (strcmp(c->exec.argv[0], "exit") == 0)
+		{
+			int code = 0;
+			if (c->exec.argv[1])
+			{
+				code = atoi(c->exec.argv[1]);
+			}
+			exit(code);
+		}
+		else if (strcmp(c->exec.argv[0], "pwd") == 0)
+		{
+			/* TODO: implement cd, pwd */
+			char buff[FILENAME_MAX];
+			getcwd(buff, FILENAME_MAX);
+			printf("%s \n", buff);
+			return 1;
+		}
+		else if (strcmp(c->exec.argv[0], "cd") == 0)
+		{
+			if (c->exec.argv[1])
+			{
+				chdir(c->exec.argv[1]); // this needs to be completed
+			}
+		}
+		else if (strcmp(c->exec.argv[1], ">") == 0)
+		{
+			int file = open(c->exec.argv[2], O_CREAT | O_RDWR);
+			if (file != -1)
+			{
+				dup2(file, fileno(stdout));
+			}
+		}
+		else if (strcmp(c->exec.argv[1], "<") == 0)
+		{
+			int file = open(c->exec.argv[2], O_RDONLY);
+			if (file != -1)
+			{
+				dup2(file, fileno(stdin));
+			}
+		}
+		else if (strcmp(c->exec.argv[0], "ls") == 0)
+		{
+			
+			struct dirent *myfile;
+			char *dirName;
+			char *buff;
+			dirName = getcwd(buff, FILENAME_MAX);
+			DIR *mydir;
+			mydir = opendir(dirName);
+			while ((myfile = readdir(mydir)) != NULL)
+			{
+				fprintf(stderr, "%s", myfile->d_name);
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	default:
+		return 0;
+	}
 }
 
-void
-exec_cmd(struct cmd *c)
+/* Most of your implementation needs to be in here, so a description of this
+ * function is in order:
+ *
+ * int exec_cmd(struct cmd *c)
+ *
+ * Executes a command structure. See shtypes.h for the definition of the
+ * `struct cmd` structure.
+ *
+ * The return value is the exit code of a subprocess, if a subprocess was
+ * executed and waited for. (Id est, it should be the low byte of the return
+ * value from that program's main() function.) If no return code is collected,
+ * the return value is 0.
+ *
+ * For pipes and lists, the return value is the exit code of the rightmost
+ * process.
+ *
+ * The function does not change the assignment of file descriptors of the
+ * current process--but it may fork new processes and change their file
+ * descriptors. On return, the shell is expected to remain connected to
+ * its usual controlling terminal (via stdin, stdout, and stderr).
+ *
+ * This will not be called for builtins (values for which the function above
+ * returns a nonzero value).
+ */
+int exec_cmd(struct cmd *c)
 {
-  // don't try to execute a command if parsing failed.
-  if (!c)
-    return;
+	// don't try to execute a command if parsing failed.
+	if (!c)
+		return -1;
 
-  int child;
+	int child;
 
-  switch (c->tp)
-  {
-  case EXEC:
-    if((child = fork1())) {
-      while(wait1() != child) {
-        /* Ignore spurious deaths */
-      }
-    } else {
-      exec(c->exec.argv[0], c->exec.argv);
-      fatal("exec failed! command not found or out of memory?\n");
-    }
-    break;
+	switch (c->tp)
+	{
+	case EXEC:
+		/* TODO: What will run a command? How do you make sure the shell
+	 * stays around afterward? (Hint: fork, then execvp, then wait; look
+	 * at main() for some inspiration.) */
+		break;
 
-  case PIPE:
-    /* TODO */
-    break;
+	case PIPE:
+		/* TODO: Run *two* commands, but with the stdout chained to the stdin
+	 * of the next command. How? Use the syscall pipe: */
+		{
+			int pipefds[2];
+			pipe(pipefds);
+			/* At this point, pipefds[0] is a read-only FD, and pipefds[1] is a
+		 * write-only FD. Make *absolutely sure* you close all instances of
+		 * pipefds[1] in processes that aren't using it, or the reading child
+		 * will never know when it needs to terminate! */
+		}
+		break;
 
-  case LIST:
-    /* TODO */
-    break;
+	case LIST:
+		/* Here's a freebie: */
+		exec_cmd(c->list.first);
+		return exec_cmd(c->list.next);
+		break;
 
-  case REDIR:
-    /* TODO */
-    break;
+	case REDIR:
+		/* Redirect a file descriptor, then use it in the command. Note that you
+	 * should avoid changing the *shell's* file descriptors, so you probably
+	 * want to do this in a process. As a hint, look back at EXEC when you
+	 * have that done. */
+		break;
 
-  case BACK:
-    /* TODO */
-    break;
+	case BACK:
+		/* This should be easy--what's something you can remove from EXEC to have
+	 * this function return before the child exits? */
+		break;
 
-  default:
-    fatal("BUG: exec_cmd unknown command type\n");
-  }
+	default:
+		fatal("BUG: exec_cmd unknown command type\n");
+	}
 }

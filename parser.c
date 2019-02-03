@@ -23,7 +23,7 @@ struct cmd *parse(void)
   /* Resynchronize the parser */
   while(!is_sync(get_cur()))
   {
-    io_printf("parse_list: warning: trailing token %d:%s\n",
+    printf("parse_list: warning: trailing token %d:%s\n",
               get_cur(), safe_tok_name(get_cur())
              );
     advance();
@@ -69,7 +69,7 @@ struct cmd *parse_pipeline(void)
     if(sub)
       return new_pipe(c, sub);
     else
-      io_printf("parse_pipeline: warning: trailing pipe\n");
+      printf("parse_pipeline: warning: trailing pipe\n");
   }
 
   return c;
@@ -85,7 +85,7 @@ struct cmd *parse_block(void)
     c = parse_list();
     if(get_cur() != TOK_BLOCK_END)
     {
-      io_printf("parse_block: synerr: unbalanced block\n");
+      printf("parse_block: synerr: unbalanced block\n");
       parser_recover();
       return NULL;
     }
@@ -127,14 +127,14 @@ struct cmd *parse_redir(struct cmd *c)
 
   case TOK_REDIR_APPEND:
     fd = 1;
-    mode = O_WRONLY | O_CREAT;
+    mode = O_WRONLY | O_CREAT | O_APPEND;
     break;
   }
 
   advance();
   if(get_cur() != TOK_WORD)
   {
-    io_printf("parse_redir: synerr: expected a filename after redirect");
+    printf("parse_redir: synerr: expected a filename after redirect");
     parser_recover();
     return NULL;
   }
@@ -160,7 +160,7 @@ struct cmd *parse_exec(void)
 
   if(get_cur() != TOK_WORD)
   {
-    io_printf("parse_exec: synerr: expected a word, found instead %d:%s",
+    printf("parse_exec: synerr: expected a word, found instead %d:%s",
               get_cur(), safe_tok_name(get_cur())
              );
     parser_recover();
