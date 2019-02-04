@@ -45,40 +45,7 @@ int handle_builtin(struct cmd *c)
 			{
 				chdir(c->exec.argv[1]); // this needs to be completed
 			}
-		}
-		else if (strcmp(c->exec.argv[1], ">") == 0)
-		{
-			int file = open(c->exec.argv[2], O_CREAT | O_RDWR);
-			if (file != -1)
-			{
-				dup2(file, fileno(stdout));
-			}
-		}
-		else if (strcmp(c->exec.argv[1], "<") == 0)
-		{
-			int file = open(c->exec.argv[2], O_RDONLY);
-			if (file != -1)
-			{
-				dup2(file, fileno(stdin));
-			}
-		}
-		else if (strcmp(c->exec.argv[0], "ls") == 0)
-		{
-			
-			struct dirent *myfile;
-			char *dirName;
-			char *buff;
-			dirName = getcwd(buff, FILENAME_MAX);
-			DIR *mydir;
-			mydir = opendir(dirName);
-			while ((myfile = readdir(mydir)) != NULL)
-			{
-				fprintf(stderr, "%s", myfile->d_name);
-			}
-		}
-		else
-		{
-			return 0;
+			return  1;
 		}
 	default:
 		return 0;
@@ -145,6 +112,7 @@ int exec_cmd(struct cmd *c)
 		break;
 
 	case REDIR:
+	 	// c->redir.______  whatever
 		/* Redirect a file descriptor, then use it in the command. Note that you
 	 * should avoid changing the *shell's* file descriptors, so you probably
 	 * want to do this in a process. As a hint, look back at EXEC when you
