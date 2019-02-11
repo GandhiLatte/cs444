@@ -90,6 +90,22 @@ int exec_cmd(struct cmd *c)
 		/* TODO: What will run a command? How do you make sure the shell
 	 * stays around afterward? (Hint: fork, then execvp, then wait; look
 	 * at main() for some inspiration.) */
+		child = fork1();
+		if(child == 0)
+		{
+			if(execvp(c->exec.argv[0], c->exec.argv) == -1){
+			} else
+			{
+				exit(execvp(c->exec.argv[0], c->exec.argv));
+			}
+		} else {
+			int code;
+
+		/* Avoid spurious deaths--wait for specifically the child with the given PID
+		 * to die. This *should* be our only child, but it doesn't hurt to be safe. */
+        	while(wait(&code) != child)
+            	;
+		}
 		break;
 
 	case PIPE:
@@ -98,6 +114,9 @@ int exec_cmd(struct cmd *c)
 		{
 			int pipefds[2];
 			pipe(pipefds);
+
+
+
 			/* At this point, pipefds[0] is a read-only FD, and pipefds[1] is a
 		 * write-only FD. Make *absolutely sure* you close all instances of
 		 * pipefds[1] in processes that aren't using it, or the reading child
