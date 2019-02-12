@@ -3,6 +3,13 @@
 #include "io.h"
 #include <dirent.h>
 #include <unistd.h>
+#include "exec.h"
+
+job_t *head = NULL;
+
+
+char history[10][150];
+int curr_history = 0;
 
 int handle_builtin(struct cmd *c)
 {
@@ -14,12 +21,20 @@ int handle_builtin(struct cmd *c)
 	case EXEC:
 		if (strcmp(c->exec.argv[0], "echo") == 0)
 		{
+			if (curr_history < 10)
+				strcpy(history[curr_history], c->exec.argv[0]);
+
 			for (int i = 1;; i++)
 				if (c->exec.argv[i])
+				{
+					strcat(history[curr_history], " ");
+					strcat(history[curr_history], c->exec.argv[i]);
 					printf("%s ", c->exec.argv[i]);
+				}
 				else
 					break;
 			printf("\n");
+			curr_history++;
 			return 1;
 		}
 		else if (strcmp(c->exec.argv[0], "exit") == 0)
@@ -34,18 +49,43 @@ int handle_builtin(struct cmd *c)
 		else if (strcmp(c->exec.argv[0], "pwd") == 0)
 		{
 			/* TODO: implement cd, pwd */
+			strcpy(history[curr_history], c->exec.argv[0]);
 			char buff[FILENAME_MAX];
 			getcwd(buff, FILENAME_MAX);
 			printf("%s \n", buff);
+			curr_history++;
 			return 1;
 		}
 		else if (strcmp(c->exec.argv[0], "cd") == 0)
 		{
+			strcpy(history[curr_history], c->exec.argv[0]);
 			if (c->exec.argv[1])
 			{
+				strcat(history[curr_history], " ");
+				strcat(history[curr_history], c->exec.argv[1]);
 				chdir(c->exec.argv[1]); // this needs to be completed
 			}
+			curr_history++;
 			return 1;
+		}
+		else if (strcmp(c->exec.argv[0], "history") == 0)
+		{
+			for (int i = 0; i <= curr_history; i++)
+			{
+				printf("%s \n", history[i]);
+			}
+		} else if(strcmp(c->exec.argv[0], "help") == 0)
+		{
+			printf("Example Commands\n-help -echo -pwd -ls -cd -exit\n-history is buggy \n-jobs also buggy\n");
+		} else if(strcmp(c->exec.argv[0], "jobs") == 0)
+		{
+			job_t * temp;
+			temp = head;
+
+			while(temp != NULL)
+			{
+				printf("[%d] %s \n", temp->pid, temp->name);
+			}
 		}
 	default:
 		return 0;
@@ -91,6 +131,14 @@ int exec_cmd(struct cmd *c)
 	 * stays around afterward? (Hint: fork, then execvp, then wait; look
 	 * at main() for some inspiration.) */
 		child = fork1();
+		/*for(int i = 0; i <= sizeof(c->exec.argv); i++)
+		{
+			strcat(history[curr_history], c->exec.argv[i]);
+			strcat(history[curr_history], " ");
+		}
+		curr_history++;
+		*/
+
 		if (child == 0)
 		{
 			if (execvp(c->exec.argv[0], c->exec.argv) == -1)
@@ -152,7 +200,6 @@ int exec_cmd(struct cmd *c)
 				}
 			}
 
-
 			/* At this point, pipefds[0] is a read-only FD, and pipefds[1] is a
 		 * write-only FD. Make *absolutely sure* you close all instances of
 		 * pipefds[1] in processes that aren't using it, or the reading child
@@ -175,7 +222,7 @@ int exec_cmd(struct cmd *c)
 		child = fork1();
 		if (child == 0)
 		{
-			int fd = open(c->redir.path, c->redir.mode);
+			int fd = open(c->redir.path, c->redir.mode, 0644);
 			if (fd < 0)
 			{
 				exit(0);
@@ -204,10 +251,52 @@ int exec_cmd(struct cmd *c)
 		if (child == 0)
 		{
 			exit(exec_cmd(c->back.cmd));
+		} else
+		{
+			if(c->back.cmd->tp == EXEC) {
+				head = job_add(child, c->back.cmd->exec.argv[0], head);
+			}
+			
 		}
+		
 		break;
 
 	default:
 		fatal("BUG: exec_cmd unknown command type\n");
 	}
+}
+
+job_t *job_add(int p , char *n, job_t *h)
+{
+
+	job_t *node = malloc(sizeof(job_t));
+	node->name = n;
+	node->pid = p;
+	node->next = h;
+	return node;
+}
+
+job_t *job_remove_last(job_t *h)
+{
+	job_t *retjob = NULL;
+
+	if(h->next == NULL)
+	{
+		retjob->name = h->name;
+		retjob->pid = h->pid;
+		free(h);
+		return retjob;
+	}
+
+	job_t * current = h;
+	while(current->next->next != NULL)
+	{
+		current = current->next;
+	}
+
+	retjob->name = current->next->name;
+	retjob->pid = current->next->pid;
+	free(current->next);
+	current->next = NULL;
+	return retjob;
 }
