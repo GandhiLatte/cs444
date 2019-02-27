@@ -29,6 +29,15 @@ void* get_haircut(void* args){
 	arg = (int*) args;
 	id = *arg;
 
+	
+	sem_wait(&barber_sem);
+	pthread_mutex_lock(&count_lock);
+		NUM_CUSTOMERS--;
+	pthread_mutex_unlock(&count_lock);
+
+
+
+	sem_post(&barber_sem);
 	/* Actual logic:
 	 * - Check (and wait) for an available barber
 	 * - Once a chair is occupied, get a haircut
@@ -96,19 +105,27 @@ int main(int argc, char **argv)
 	printf("A haircut takes %i seconds.\n\n", HAIRCUT_TIME);
 
 	/* Initialize variables--counts, locks, and semaphors */
+	pthread_mutex_init(&count_lock, NULL);
+	sem_init(&barber_sem, 0, NUM_BARBERS);
 
 	printf("Beginning Simulation.\n\n");
 	srand((unsigned int) time(NULL));
 	for(iteration=0; iteration<NUM_CUSTOMERS; ++iteration){
 		/* Create a customer thread */
+		pthread_create(threads[iteration], NULL, *get_haircut, NULL);
 		pthread_detach(threads[iteration]);  /* Indicate that the thread shouldn't hold resources */
-
 		/* Wait for a random amount of time */
+		sleep(CUSTOMER_MAX_INTERVAL);
 	}
 
 	/* Check (and wait) for any remaining customers */
 
 	/* Clean up */
+	for(int i=0; i<NUM_CUSTOMERS; i++)
+	{
+		pthread_join(threads[i], NULL);	
+	}
+	pthread_mutex_destroy(&count_lock);
 	printf("\nBarbershop Problem Completed\n");
 	return(0);
 }
