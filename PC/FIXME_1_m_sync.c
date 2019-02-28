@@ -47,7 +47,6 @@ typedef struct {
 	int full, empty;  //you may need or may not
 
 	/*Declare the locks here */
-	int lock;
 } queue;
 
 /***** Queue function prototypes  *****/
@@ -61,7 +60,6 @@ void queueDel (queue *q, int *out);
 int main ()
 {
 	queue *fifo;
-	fifo->lock = 0;
 	int i;
 
 	//for Consumer's random coming
@@ -157,27 +155,23 @@ void *producer (void *q)
 		#endif
 		
         #ifdef WINDOWS
-		while (fifo->full) 
-		{
-		}
+		while (fifo->full)  
+		{ }
 		WaitForSingleObject(mutex, TRUE, INFINITE);
+
         #endif
-		
-		while(fifo->lock)
-		{
-		}
-		fifo->lock = 1;
+
 		queueAdd (fifo, i+1);
 		printf ("producer: produced %d th.\n",i+1);
-		fifo->lock = 0;
+
 		/* sleep */
 		#ifdef UNIX
 			usleep ( PRODUCER_SLEEP_S * 1000000); 
 		#endif
 		
 		#ifdef WINDOWS
-			ReleaseMutex(mutex);
-			Sleep ( PRODUCER_SLEEP_S * 1000);	
+			Sleep ( PRODUCER_SLEEP_S * 1000);
+			ReleaseMutex(mutex);	
 		#endif
 
         /*******Release the locks**********/
@@ -220,10 +214,11 @@ void *consumer (void *q)
 	
 	
     #ifdef WINDOWS
+
 	while (fifo->empty) 
-	{
-	}
+	{ }
 	WaitForSingleObject(mutex, TRUE, INFINITE);
+
     #endif
 	
 	/* sleep */
