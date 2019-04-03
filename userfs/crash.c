@@ -4,7 +4,7 @@ void init_crasher()
 {
 
 	srand(time(NULL));
-	int  crash_sleep = 1+(int) (50.0*rand()/(RAND_MAX+1.0));
+	int  crash_sleep = 1+ (int)(50.0*rand()/(RAND_MAX+1.0));
 
 	crash_now = FALSE;
 
