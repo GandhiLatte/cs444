@@ -405,7 +405,7 @@ int u_import(char *linux_file, char *u_file)
 	}
 
 	/* check file name is short enough */
-	if (sizeof(linux_file) >= MAX_FILE_NAME_SIZE)
+	if (strlen(linux_file) >= MAX_FILE_NAME_SIZE)
 	{
 		printf("Error, could not create file (File Name Too Large\n");
 		return 0;
@@ -414,25 +414,18 @@ int u_import(char *linux_file, char *u_file)
 	/* check that file does not already exist - if it
 	   does can just print a warning
 	   could also delete the old and then import the new */
-	if (access(*u_file, F_OK))
+	for (int index = 0; index < dir.no_files; index++)
 	{
-		int status;
-		printf("Error, file already exists\n");
-		status = remove(*u_file);
-		if (status)
+		if (strcmp(u_file, dir.u_file[index].file_name) == 0)
 		{
-			printf("Successfully removed old file\n");
-		}
-		else
-		{
-			printf("Error, could not delete file, aborting...\n");
+			printf("Error, file already exists");
 			return 0;
 		}
 	}
 
 	/* check total file length is small enough to be
 	   represented in MAX_BLOCKS_PER_FILE */
-	if (size >= MAX_BLOCKS_PER_FILE)
+	if (size >= MAX_BLOCKS_PER_FILE * BLOCK_SIZE_BYTES)
 	{
 		printf("Error, could not create file (File larger than Max Blocks)\n");
 		return 0;
@@ -466,6 +459,7 @@ int u_import(char *linux_file, char *u_file)
 	/* then update the structures: what all needs to be updates?  
 	   bitmap, directory, inode, datablocks, superblock(?) */
 	curr_inode.no_blocks = (size + BLOCK_SIZE_BYTES - 1) / BLOCK_SIZE_BYTES;
+	curr_inode.file_size_bytes = size;
 	int blocks_var = 0;
 
 	/* prepares the blocks in the inode */
@@ -500,6 +494,24 @@ int u_import(char *linux_file, char *u_file)
 	}
 
 	/* diretory */
+	int dir_index = -1;
+	for(int index = 0; index < MAX_FILES_PER_DIRECTORY; index++)
+	{
+		if(dir.u_file[index].free == 1)
+		{
+			dir_index = index;
+		}
+	}
+	if(dir_index < 0)
+	{
+		printf("Error, could not create directory file_struct\n");
+		return 0;
+	}
+
+	strcpy(dir.u_file[dir_index].file_name, u_file);
+	dir.u_file[dir_index].inode_number = free_inode_index;
+	dir.u_file[dir_index].free = 0;
+	dir.no_files++;
 	lseek(virtual_disk, DIRECTORY_BLOCK * BLOCK_SIZE_BYTES, SEEK_SET);
 	crash_write(virtual_disk, &dir, sizeof(dir));
 
@@ -542,16 +554,17 @@ int u_export(char *u_file, char *linux_file)
 	*/
 
 	/* opening the file */
-	int handle = open(linux_file, O_WRONLY);
+	int handle = open(linux_file, O_WRONLY | O_CREAT, S_IRWXU | S_IRWXG);
 	if (-1 == handle)
 	{
+		perror("open");
 		printf("error, writing file %s\n", linux_file);
 		return 0;
 	}
 
 	int inode_num;
 	int u_file_index = -1;
-	for (int index = 0; index < dir.no_files; index++)
+	for (int index = 0; index < MAX_FILES_PER_DIRECTORY; index++)
 	{
 		if (strcmp(u_file, dir.u_file[index].file_name) == 0)
 		{
@@ -612,8 +625,26 @@ int u_del(char *u_file)
 
 	  superblock only has to be up-to-date on clean shutdown?
 	*/
+	for (int index = 0; index < MAX_FILES_PER_DIRECTORY; index++)
+	{
+		if (strcmp(dir.u_file[index].file_name, u_file) == 0)
+		{
+			read_inode(dir.u_file[index].inode_number, &curr_inode);
+			dir.u_file[index].free = 1;
+			lseek(virtual_disk, DIRECTORY_BLOCK * BLOCK_SIZE_BYTES, SEEK_SET);
+			crash_write(virtual_disk, &dir, sizeof(dir));
+			curr_inode.free = 1;
+			write_inode(dir.u_file[index].inode_number, &curr_inode);
+			for (int scope = 0; scope < curr_inode.no_blocks; scope++)
+			{
+				bit_map[curr_inode.blocks[scope]] = 0;
+			}
+			lseek(virtual_disk, BIT_MAP_BLOCK * BLOCK_SIZE_BYTES, SEEK_SET);
+			crash_write(virtual_disk, bit_map, BIT_MAP_SIZE);
+		}
+	}
 
-	return 0;
+	return 1;
 }
 
 /*
@@ -631,30 +662,59 @@ int u_fsck()
 	  pointed to by a file?
 	*/
 
-	for (int index = 0; index < ; index++)
+	for (int index = 0; index < MAX_INODES - 1; index++)
 	{
-		printf("Error,");
-		return 0;
-	}
-
-	if (1)
-	{
-		printf("Error,");
-		return 0;
-	}
-
-	int bit_map_free = 0;
-	for (int index = 0; index < BIT_MAP_SIZE; index++)
-	{
-		if (bit_map[index] == 0)
+		read_inode(index, &curr_inode);
+		if (curr_inode.free == 0)
 		{
-
+			int found_flag = 0;
+			for (int scope = 0; scope < MAX_FILES_PER_DIRECTORY; scope++)
+			{
+				if ((dir.u_file[scope].free == 0) && (index == dir.u_file[scope].inode_number))
+				{
+					found_flag = 1;
+					break;
+				}
+			}
+			if (!found_flag)
+			{
+				printf("Error, found an orphan inode\n");
+				curr_inode.free = 1;
+				write_inode(index, &curr_inode);
+			}
 		}
 	}
-	if (1)
+
+	for (int index = 0; index < BIT_MAP_SIZE; index++)
 	{
-		printf("Error,");
-		return 0;
+		if (bit_map[index] == 1)
+		{
+			int found_flag = 0;
+			for (int kwaw = 0; kwaw < MAX_INODES - 1; kwaw++)
+			{
+				read_inode(kwaw, &curr_inode);
+				if (curr_inode.free == 0)
+				{
+
+					for (int scope = 0; scope < curr_inode.no_blocks; scope++)
+					{
+						if (curr_inode.blocks[scope] == index)
+						{
+							found_flag = 1;
+							goto out;
+						}
+					}
+				}
+			}
+		out:
+			if (!found_flag)
+			{
+				printf("Error, found an orphan inode\n");
+				bit_map[index] = 0;
+				lseek(virtual_disk, BIT_MAP_BLOCK * BLOCK_SIZE_BYTES, SEEK_SET);
+				crash_write(virtual_disk, bit_map, BIT_MAP_SIZE);
+			}
+		}
 	}
 
 	return 1;
