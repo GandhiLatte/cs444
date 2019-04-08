@@ -1,5 +1,10 @@
+I have chosen to work by myself on this project.
 
-Try:
 
- ./userfs -reformat 200000 foo
- ./userfs foo
+I have included example files systems: 
+userfile
+usefilesystem
+userfs
+
+These are just examples of file systems that I have created they are not needed.
+Also included are all the files used for the skeleton code, all of which have not been changed other than userfs.c
